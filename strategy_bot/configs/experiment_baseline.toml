@@ -1,0 +1,88 @@
+# PROVISIONAL EXPERIMENT PARAMETERS - NOT PART OF THE STRATEGY RULES.
+#
+# The strategy specification (section 12) deliberately leaves these values
+# unfinalized. The numbers below are placeholders chosen only so the engine,
+# replay and paper runner can be exercised end to end. They have NOT been
+# tuned or validated on market data. Review every one, change them in a copy
+# of this file, and keep the file with each backtest result it produced.
+
+[meta]
+name = "experiment_baseline"
+status = "PROVISIONAL - unvalidated placeholder thresholds"
+
+[strategy]
+min_rr = 3.0                     # rule: fixed minimum; cannot be lowered
+
+[daily]
+trend_lookback_days = 5          # rule: "recent 4-5 completed sessions"
+min_directional_closes = 3       # placeholder: day-over-day closes in trend direction within the lookback
+flip_lookback_days = 3           # rule: fixed three-day flip
+initial_bias = "NEUTRAL"         # no trade until a 3-day close break + trend agree
+
+[hourly]
+min_body_ratio = 0.6             # placeholder: |close-open| / (high-low)
+min_close_location = 0.7         # placeholder: close within top 30% (long) / bottom 30% (short) of range
+breakout_lookback_bars = 3       # placeholder: close beyond the extreme of the previous N completed 1H bars
+allow_short_session_bar = false  # the 15:15-15:30 "hour" is 15 minutes long; excluded as a trigger
+
+[volume]
+required = true                  # set false ONLY in a separately labelled experiment (e.g. spot index data)
+window_bars = 20                 # placeholder: previous completed 1H bars used as reference
+min_relative_multiple = 1.5      # placeholder: trigger volume / mean reference volume
+
+[structure]
+swing_left = 2
+swing_right = 2
+mode = "non_contradictory"       # mandatory | non_contradictory | record_only (latest 1H BOS/CHoCH vs bias)
+window_bars = 150                # 1H bars passed to the existing BOS/CHoCH detector
+
+[retest]
+# A retest is a completed 15m bar that trades back to EITHER the broken 1H level
+# (+/- tolerance) OR into the trigger candle to within this fraction of its range
+# from the midpoint, whichever is reached first. The midpoint stays the stop.
+tolerance_points = 10.0                       # placeholder
+pullback_fraction_of_trigger_range = 0.25     # placeholder (0 = must reach the midpoint, 0.5 = trigger extreme)
+expiry_bars = 8                  # placeholder: 15m bars after the trigger before the setup expires
+min_confirm_body_ratio = 0.5     # placeholder: confirmation candle body / range
+
+[levels]
+swing_left = 2
+swing_right = 2
+target_sources = ["swing_60m", "swing_1d", "prior_day", "prior_week"]
+cluster_tolerance_points = 15.0  # placeholder: levels this close form one zone
+zone_edge = "near"               # target at the nearest edge of the zone (most conservative)
+
+[entry]
+fill = "next_open"               # enter at the open of the 15m bar after the confirmation candle
+
+[hard_stop]
+buffer_points = 20.0             # placeholder: protective stop this far beyond the 1H midpoint
+same_bar_collision = "stop_first"
+
+[risk]
+max_daily_loss_r = 2.0           # placeholder: no new entries once the day's realized loss reaches this
+
+[reentry]
+max_attempts = 2                 # "approximately two attempts per setup" - not confirmed
+require_new_trigger = false
+
+[holding]
+max_sessions = 2
+forced_exit_time = "15:15"       # placeholder: exit at the close of the bar ending at/after this time
+friday_carry_allowed = false     # placeholder: flat before the weekend
+friday_cutoff_time = "15:15"
+daily_flip_action = "exit_next_open"
+
+[costs]
+slippage_points_per_side = 1.0   # placeholder, in NIFTY futures points
+round_trip_cost_points = 1.0     # placeholder for brokerage + statutory charges, in points
+
+[data]
+min_1m_bars_per_15m = 13         # a 15m bucket with fewer 1m bars is rejected
+volume_available = true          # false for NIFTY spot index data
+
+[execution]
+mode = "paper"                   # the only supported value; no live-order code exists
+
+[backtest]
+out_of_sample_start = ""         # e.g. "2026-01-01": trades from this date are reported separately

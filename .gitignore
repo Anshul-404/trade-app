@@ -9,3 +9,4 @@ venv/
 data/historical/
 *.sqlite3
 *.7z
+data/strategy/
