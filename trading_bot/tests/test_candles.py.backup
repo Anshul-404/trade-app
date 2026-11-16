@@ -1,0 +1,73 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from trading_bot.candles import CandleStore, time_bucket
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def stamp(hour, minute, day=13):
+    return int(datetime(2026, 11, day, hour, minute, tzinfo=IST).timestamp())
+
+
+assert s.snapshot(1) == [
+    dict(
+        time=stamp(9, 15),
+        open=100,
+        high=105,
+        low=98,
+        close=98,
+        volume=None,
+        source="live_sampled",
+    )
+]
+
+def test_two_minute_bars_use_session_anchor():
+    s=CandleStore()
+    s.on_tick(100,stamp(9,15));s.on_tick(102,stamp(9,16));s.on_tick(99,stamp(9,17))
+    bars=s.snapshot(2)
+    assert len(bars)==2
+    assert bars[0]['time']==stamp(9,15) and bars[0]['high']==102
+    assert bars[1]['time']==stamp(9,17)
+
+
+def test_hour_bars_start_at_0915():
+    assert time_bucket(stamp(10,10),60)==stamp(9,15)
+    assert time_bucket(stamp(10,15),60)==stamp(10,15)
+
+
+def test_delayed_tick_is_rejected():
+    s=CandleStore();s.on_tick(100,stamp(9,16));assert not s.on_tick(98,stamp(9,15))
+    assert s.snapshot(1)[0]['close']==100
+
+
+def test_seed_aggregation_and_history_volume():
+    s=CandleStore()
+    n=s.seed([
+        dict(time=stamp(9,15),open=100,high=103,low=99,close=101,volume=20),
+        dict(time=stamp(9,16),open=101,high=104,low=100,close=102,volume=30),
+    ])
+    assert n==2
+    assert s.snapshot(2)[0]['volume']==50
+    assert s.snapshot(2)[0]['close']==102
+    assert s.last_price is None
+
+
+def test_intraminute_ohlc():
+    s = CandleStore()
+
+    assert s.on_tick(100, stamp(9, 15))
+    assert s.on_tick(105, stamp(9, 15) + 5)
+    assert s.on_tick(98, stamp(9, 15) + 10)
+
+    assert s.snapshot(1) == [
+        dict(
+            time=stamp(9, 15),
+            open=100,
+            high=105,
+            low=98,
+            close=98,
+            volume=None,
+            source="live_sampled",
+        )
+    ]

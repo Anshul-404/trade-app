@@ -1,0 +1,5 @@
+# Add these lines to your existing Trading Bot .gitignore
+.env
+.env.*
+!.env.example
+data/historical/

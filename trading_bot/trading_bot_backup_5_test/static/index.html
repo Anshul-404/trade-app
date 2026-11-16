@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trading Bot — Live Market Chart</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-icon">◈</span><div><strong>Trading Bot</strong><small>READ-ONLY MARKET TERMINAL</small></div></div>
+    <div class="top-right"><span class="status-dot" id="status-dot"></span><span id="feed-state">Connecting…</span><span class="rule"></span><span id="clock"></span></div>
+  </header>
+  <main>
+    <section class="summary">
+      <div><span class="eyebrow">DHANHQ · LIVE MARKET DATA</span><h1 id="symbol">NIFTY 50</h1><div class="descriptor">Candlestick chart <span>•</span> India Standard Time</div></div>
+      <div class="quote"><span class="eyebrow">LAST TRADED PRICE</span><div id="last-price">—</div><div class="muted" id="last-tick">Awaiting feed</div></div>
+    </section>
+    <section class="workspace">
+      <div class="toolbar"><div class="timeframes" role="group" aria-label="Chart timeframe"><button class="active" data-tf="1">1m</button><button data-tf="2">2m</button><button data-tf="5">5m</button><button data-tf="10">10m</button><button data-tf="15">15m</button><button data-tf="60">1h</button></div><div class="chart-info"><span class="pill">Candlestick</span><span id="bar-count">0 candles</span></div></div>
+      <div class="ohlc-strip" id="ohlc-strip" aria-live="off">Move your cursor over a candle to inspect OHLC</div>
+      <div id="chart"></div>
+      <div class="below"><span>Source: DhanHQ Data APIs</span><span id="hist-state">Loading historical candles…</span><span>No orders can be placed</span></div>
+    </section>
+    <p class="notice" id="notice">Waiting for historical market data and the live connection. Market hours: Monday–Friday, 9:15 AM–3:30 PM IST (normal NSE session; holidays may differ).</p>
+  </main>
+  <footer>Trading Bot · Chart data for personal analysis · Built with <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts™</a></footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

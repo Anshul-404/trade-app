@@ -1,0 +1,51 @@
+/* Trading Bot dashboard enhancement: efficient CSS bars; no animation loops. */
+:root {--tb-line:#2b4057;--tb-bg:#0e1929;--tb-ink:#dae8f7;--tb-muted:#93a7bf;--tb-up:#24ba90;--tb-down:#f07880}
+body{background:#0b1421}
+main{max-width:1800px;margin:0 auto}
+.market-layout{grid-template-columns:minmax(0,1fr) minmax(350px,430px);gap:16px}
+.market-layout>.workspace,.market-layout>.op-panel{box-shadow:0 8px 28px rgba(0,0,0,.12)}
+.op-panel{max-height:none}
+.op-warning{line-height:1.6}
+.tb-chart-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 13px;background:#15263a;border-top:1px solid var(--tb-line);color:var(--tb-ink)}
+.tb-chart-controls strong{font-size:12px;margin-right:6px}
+.tb-chart-controls input{width:105px;border:1px solid #3b5570;border-radius:6px;background:#101b29;color:white;padding:7px 8px}
+.tb-chart-controls button,.tb-button{border:1px solid #35516e;background:#1a3149;border-radius:7px;color:#e1ebf7;padding:7px 12px;cursor:pointer}
+.tb-chart-controls button:hover,.tb-button:hover{background:#294461}
+.tb-mini-note{font-size:11px;color:var(--tb-muted);line-height:1.4}
+.tb-error{color:#ff9da5!important}
+.tb-paper-risk{margin-top:18px;border-top:1px solid var(--tb-line);padding-top:15px}
+.tb-risk-title{display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap}
+.tb-risk-title h3{margin:0}
+.tb-sell-all{background:#a33b4a!important;color:#fff!important;border:1px solid #de6979!important;font-weight:700}
+.tb-sell-all:hover:not(:disabled){background:#b44b57!important}
+.tb-sell-all:disabled{opacity:.4;cursor:not-allowed}
+.tb-risk-list{margin:10px 0;max-height:320px;overflow:auto;display:grid;gap:8px}
+.tb-risk-position{background:#122239;border:1px solid var(--tb-line);border-radius:9px;padding:10px}
+.tb-risk-position.selected{border-color:#75acdc}
+.tb-risk-select{display:block;background:none;border:0;text-align:left;padding:0;color:#dae8f7;cursor:pointer;font-weight:700;font-size:11px;overflow-wrap:anywhere}
+.tb-risk-small{font-size:10px;color:#9dafc7;margin:5px 0 8px}
+.tb-risk-fields{display:grid;grid-template-columns:1fr 1fr auto;gap:6px}
+.tb-risk-fields input{width:100%;min-width:0;padding:7px;font-size:11px;background:#0e1b2d;color:#d4e4f5;border:1px solid #3b516a;border-radius:6px}
+.tb-compact-btn{padding:7px 10px;border-radius:6px;background:#1d5073;color:white;border:1px solid #37769a;cursor:pointer;font-size:11px}
+.tb-compact-btn:disabled{opacity:.4}
+.tb-option-graph{margin-top:12px;background:#0d1726;border:1px solid var(--tb-line);padding:10px;border-radius:10px}
+.tb-option-graph h4{font-size:11px;font-weight:600;color:#c8d9ee;margin:0 0 9px}
+#tb-premium-canvas{display:block;width:100%;height:170px}
+.tb-movers{margin-top:18px;background:#101b2b;border:1px solid #25374b;border-radius:14px;padding:18px;color:var(--tb-ink);box-shadow:0 8px 28px rgba(0,0,0,.12)}
+.tb-movers-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tb-movers-header h2{font-size:18px;margin:0}
+.tb-movers-header p{font-size:12px;color:var(--tb-muted);margin:4px 0 0}
+.tb-movers-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.tb-movers-column{border:1px solid var(--tb-line);border-radius:10px;min-width:0;overflow:hidden}
+.tb-movers-colhead{display:flex;justify-content:space-between;padding:11px 14px;background:#17293b;font-size:13px;font-weight:700}
+.tb-positive{color:#53dcb1}.tb-negative{color:#ff9199}
+.tb-movers-list{list-style:none;padding:0;margin:0;max-height:630px;overflow-y:auto}
+.tb-mover{padding:9px 13px;border-top:1px solid #1b2d40}
+.tb-mover-row{display:flex;justify-content:space-between;font-size:12px;gap:10px;font-variant-numeric:tabular-nums}
+.tb-mover-track{height:5px;background:#20344b;margin:7px 0 4px;border-radius:8px;overflow:hidden}
+.tb-mover-fill{height:100%;border-radius:8px}
+.tb-mover-fill.up{background:#24ba90}.tb-mover-fill.down{background:#e16d7c}
+.tb-mover-detail{font-size:10px;color:var(--tb-muted)}
+.tb-movers-empty{padding:18px;color:var(--tb-muted);font-size:12px}
+@media(max-width:1120px){.market-layout{grid-template-columns:minmax(0,1fr)}.tb-movers-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.tb-movers-grid{grid-template-columns:1fr}.tb-chart-controls input{width:85px}.tb-movers{padding:12px}}

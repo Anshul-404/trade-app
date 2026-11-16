@@ -1,0 +1,162 @@
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const expiryEl = $('op-expiry');
+  const rowsEl = $('op-rows');
+  const msgEl = $('op-message');
+  const selectedEl = $('op-selected');
+  const lotsEl = $('op-lots');
+  const buyEl = $('op-buy');
+  const sellEl = $('op-sell');
+  const positionsEl = $('op-positions');
+  const tradesEl = $('op-trades');
+  if (!expiryEl || !rowsEl) return;
+  const fmt = n => n == null ? '—' : Number(n).toLocaleString('en-IN', {maximumFractionDigits:2, minimumFractionDigits:2});
+  const currency = n => n == null ? '—' : '₹' + fmt(n);
+  let selected = null;
+  let current = null;
+  let busy = false;
+  let lastSelectedId = null;
+  function message(s, isError=false) {
+    msgEl.textContent = s;
+    msgEl.classList.toggle('error', isError);
+  }
+  async function getJson(url, opts) {
+    const response = await fetch(url, {cache:'no-store', ...opts});
+    let data = {};
+    try { data = await response.json(); } catch {}
+    if (!response.ok) throw new Error(data.detail || ('HTTP ' + response.status));
+    return data;
+  }
+  async function loadExpiries() {
+    try {
+      const data = await getJson('/api/options/expiries');
+      expiryEl.replaceChildren();
+      for (const expiry of data.expiries) {
+        const option = document.createElement('option');
+        option.value = expiry;
+        option.textContent = expiry;
+        expiryEl.appendChild(option);
+      }
+      if (!data.expiries.length) throw new Error('Dhan returned no active NIFTY expiries');
+      await refreshChain();
+    } catch (e) {message('Option chain: ' + e.message, true);}
+  }
+  function setSelected(leg) {
+    selected = leg;
+    lastSelectedId = leg ? leg.security_id : null;
+    selectedEl.textContent = leg ? `${leg.symbol} · Bid ${currency(leg.bid)} · Ask ${currency(leg.ask)}` : 'Select a CE or PE contract from the chain';
+    buyEl.disabled = !leg || !leg.ask || busy || current?.stale;
+    sellEl.disabled = !leg || !leg.bid || busy || current?.stale;
+    document.querySelectorAll('[data-op-id]').forEach(b => b.classList.toggle('chosen', String(lastSelectedId) === b.dataset.opId));
+  }
+  function cell(value, type='text') {
+    const td=document.createElement('td');
+    td.textContent = type==='amount' ? fmt(value) : String(value ?? '—');
+    return td;
+  }
+  function contractButton(leg, side) {
+    const td=document.createElement('td');
+    if (!leg) {td.textContent='—'; return td;}
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.dataset.opId=String(leg.security_id);
+    btn.className='op-contract ' + side;
+    btn.textContent=fmt(leg.last_price);
+    btn.title=`${leg.symbol}\nBid: ${fmt(leg.bid)} Ask: ${fmt(leg.ask)}\nOI: ${fmt(leg.oi)} IV: ${fmt(leg.iv)}`;
+    btn.addEventListener('click',()=>setSelected(leg));
+    td.appendChild(btn);
+    return td;
+  }
+  function renderChain(data) {
+    current = data;
+    $('op-underlying').textContent='NIFTY spot ' + currency(data.spot);
+    $('op-age').textContent=`${data.age_seconds}s old${data.stale?' · STALE':''}`;
+    rowsEl.replaceChildren();
+    for (const row of data.rows) {
+      const tr=document.createElement('tr');
+      tr.appendChild(cell(row.ce?.oi, 'amount'));
+      tr.appendChild(contractButton(row.ce, 'ce'));
+      tr.appendChild(cell(fmt(row.strike)));
+      tr.appendChild(contractButton(row.pe, 'pe'));
+      tr.appendChild(cell(row.pe?.oi, 'amount'));
+      rowsEl.appendChild(tr);
+    }
+    let found = null;
+    for (const row of data.rows) for (const leg of [row.ce,row.pe]) {
+      if (leg?.security_id === lastSelectedId) found=leg;
+    }
+    setSelected(found);
+    message(data.warning ? data.warning : data.stale ? 'Quote snapshot is stale. Paper orders disabled.' :
+      `Showing ${data.rows.length} of ${data.total_strikes} strikes. Refreshes every 8 seconds.`, !!(data.warning || data.stale));
+  }
+  async function refreshChain() {
+    if (!expiryEl.value || busy || document.hidden) return;
+    busy=true;
+    try {
+      const requested = expiryEl.value;
+      const data = await getJson('/api/options/chain?expiry=' + encodeURIComponent(requested));
+      if (requested === expiryEl.value) renderChain(data);
+      await refreshPaper();
+    } catch(e) { message('Option chain: '+e.message,true); }
+    finally {busy=false; if(selected)setSelected(selected);}
+  }
+  async function refreshPaper() {
+    try {
+      const data = await getJson('/api/paper');
+      $('op-cash').textContent=currency(data.cash);
+      $('op-equity').textContent=currency(data.equity);
+      $('op-realized').textContent=currency(data.realized_pnl);
+      $('op-unrealized').textContent=currency(data.unrealized_pnl);
+      $('op-lot-size').textContent=String(data.lot_size);
+      positionsEl.replaceChildren();
+      if (!data.positions.length) {
+        const li=document.createElement('li');li.textContent='No paper positions yet';positionsEl.appendChild(li);
+      }
+      for (const p of data.positions) {
+        const li=document.createElement('li');
+        li.textContent=`${p.symbol} · ${p.qty} qty · avg ${fmt(p.avg_price)} · P&L ${currency(p.unrealized_pnl)}`;
+        positionsEl.appendChild(li);
+      }
+      if (data.unpriced_positions) $('op-equity').title = `${data.unpriced_positions} unpriced positions: refresh their expiry to see estimated equity`;
+      else $('op-equity').title='Marked using latest cached option bid prices';
+      tradesEl.replaceChildren();
+      for (const trade of data.trades.slice(0, 8)) {
+        const li=document.createElement('li');
+        li.textContent=`${trade.action} ${trade.symbol} · ${trade.lots} lot · ${currency(trade.fill_price)}`;
+        tradesEl.appendChild(li);
+      }
+    } catch (e) { message('Paper ledger: ' + e.message, true); }
+  }
+  async function placePaper(action) {
+    if (!selected || busy) return;
+    const lots=Number(lotsEl.value);
+    if (!Number.isInteger(lots) || lots < 1 || lots > 20) {message('Lots must be between 1 and 20',true);return;}
+    const leg=selected;
+    const price=action==='BUY'?leg.ask:leg.bid;
+    if (!price) {message('Missing bid/ask quote',true);return;}
+    const confirmed=window.confirm(`PAPER ONLY — ${action} ${lots} lot(s) of ${leg.symbol}\nIndicative fill: ₹${fmt(price)} per unit\nNo real broker order will be sent. Continue?`);
+    if (!confirmed) return;
+    busy=true;
+    buyEl.disabled=sellEl.disabled=true;
+    try {
+      const result=await getJson('/api/paper/orders',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action, expiry:leg.expiry, security_id:leg.security_id, lots}),
+      });
+      message(`PAPER ${result.action} recorded: ${result.qty} units at ${currency(result.fill_price)}`);
+      await refreshPaper();
+    } catch(e) {message('Paper order rejected: '+e.message,true);}
+    finally {busy=false;setSelected(selected);}
+  }
+  expiryEl.addEventListener('change',()=>{selected=null;lastSelectedId=null;setSelected(null);refreshChain();});
+  $('op-refresh').addEventListener('click',refreshChain);
+  buyEl.addEventListener('click',()=>placePaper('BUY'));
+  sellEl.addEventListener('click',()=>placePaper('SELL'));
+  setSelected(null);
+  loadExpiries();
+  refreshPaper();
+  // Option-chain refresh is deliberately independent of the Dhan chart WebSocket.
+  setInterval(refreshChain,8000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshChain();});
+})();

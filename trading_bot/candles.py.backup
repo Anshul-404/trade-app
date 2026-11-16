@@ -1,0 +1,108 @@
+"""Thread-safe one-minute candle storage and session-anchored chart aggregation."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from math import isfinite
+from threading import RLock
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
+SUPPORTED_MINUTES = (1, 2, 5, 10, 15, 60)
+
+
+def time_bucket(timestamp: int, minutes: int) -> int:
+    """Return candle start; hourly windows follow the 09:15 IST NSE session."""
+    if minutes not in SUPPORTED_MINUTES:
+        raise ValueError(f"Unsupported timeframe: {minutes}")
+    local = datetime.fromtimestamp(timestamp, IST)
+    session_start = local.replace(hour=9, minute=15, second=0, microsecond=0)
+    offset = int((local - session_start).total_seconds())
+    return int((session_start + timedelta(seconds=offset // (minutes * 60) * minutes * 60)).timestamp())
+
+
+class CandleStore:
+    def __init__(self, max_bars: int = 6000):
+        self._bars: dict[int, dict] = {}
+        self._lock = RLock()
+        self.max_bars = max_bars
+        self.version = 0
+        self.last_price: float | None = None
+        self.last_tick_epoch: int | None = None
+
+    def seed(self, history: list[dict]) -> int:
+        """Seed actual historical OHLC data, never simulated candles."""
+        with self._lock:
+            count = 0
+            for item in sorted(history, key=lambda c: int(c["time"])):
+                try:
+                    ts = int(item["time"])
+                    o, h, l, c = (float(item[key]) for key in ("open", "high", "low", "close"))
+                    if not all(map(isfinite, (o, h, l, c))) or l > min(o, c) or h < max(o, c):
+                        continue
+                    minute = time_bucket(ts, 1)
+                    # If the LIVE feed already created this candle, keep its updates.
+                    if minute in self._bars:
+                        continue
+                    self._bars[minute] = {
+                        "time": minute, "open": o, "high": h, "low": l,
+                        "close": c, "volume": max(0, float(item.get("volume") or 0)),
+                    }
+                    count += 1
+                except (KeyError, ValueError, TypeError, OverflowError):
+                    continue
+            self._trim()
+            if count:
+                self.version += 1
+                # Historical closing price is NOT a live price.
+            return count
+
+    def on_tick(self, price: float, timestamp: int) -> bool:
+        """Apply a current price tick; reject delayed ticks older than the latest bar."""
+        if not isfinite(price) or price <= 0:
+            return False
+        minute = time_bucket(timestamp, 1)
+        with self._lock:
+            if self.last_tick_epoch is not None and timestamp < self.last_tick_epoch:
+                return False
+            if self._bars and minute < max(self._bars):
+                # A historical bar later than the tick can occur if provider timestamps lag.
+                return False
+            bar = self._bars.get(minute)
+            if bar:
+                bar["high"] = max(bar["high"], price)
+                bar["low"] = min(bar["low"], price)
+                bar["close"] = price
+            else:
+                self._bars[minute] = {
+                    "time": minute, "open": price, "high": price,
+                    "low": price, "close": price, "volume": 0,
+                }
+            self.last_price = price
+            self.last_tick_epoch = timestamp
+            self.version += 1
+            self._trim()
+            return True
+
+    def _trim(self) -> None:
+        if len(self._bars) > self.max_bars:
+            for ts in sorted(self._bars)[: len(self._bars) - self.max_bars]:
+                del self._bars[ts]
+
+    def snapshot(self, minutes: int, limit: int = 500) -> list[dict]:
+        if minutes not in SUPPORTED_MINUTES:
+            raise ValueError("Invalid timeframe")
+        with self._lock:
+            source = [dict(self._bars[t]) for t in sorted(self._bars)]
+        result: list[dict] = []
+        for bar in source:
+            start = time_bucket(bar["time"], minutes)
+            if result and result[-1]["time"] == start:
+                agg = result[-1]
+                agg["high"] = max(agg["high"], bar["high"])
+                agg["low"] = min(agg["low"], bar["low"])
+                agg["close"] = bar["close"]
+                agg["volume"] += bar["volume"]
+            else:
+                result.append({**bar, "time": start})
+        return result[-limit:]
